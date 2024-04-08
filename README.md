@@ -77,8 +77,9 @@ The following example bootstraps two environments:
 (.venv)  $ cdk bootstrap aws://ACCOUNT-NUMBER-1/REGION-1
 ```
 The following examples show multiple ways of bootstrapping environments. As shown in the second example, the aws:// prefix is optional when specifying an environment.
-``
+```
 (.venv) $ cdk bootstrap aws://123456789012/us-east-1
+```
 (.venv) $ cdk bootstrap 123456789012/us-east-1 123456789012/us-west-1
 ```
 When you run cdk bootstrap, the CDK CLI always synthesizes the CDK app in the current directory. If you do not specify at least one environment, the CDK CLI will bootstrap all environments referenced in the app.
