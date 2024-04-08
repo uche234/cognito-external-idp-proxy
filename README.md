@@ -73,11 +73,11 @@ Install the required layer files before deployment. The Lambda function to handl
 Use the cdk bootstrap command to bootstrap one or more AWS environments.
 
 The following example bootstraps two environments:
-```
+
 (.venv)  $ cdk bootstrap aws://ACCOUNT-NUMBER-1/REGION-1
 ```
 The following examples show multiple ways of bootstrapping environments. As shown in the second example, the aws:// prefix is optional when specifying an environment.
-
+``
 (.venv) $ cdk bootstrap aws://123456789012/us-east-1
 ```
 (.venv) $ cdk bootstrap 123456789012/us-east-1 123456789012/us-west-1
