@@ -58,10 +58,13 @@ def handler(event, context):
     config = {}
     config["idp_auth_uri"] = os.environ.get("IdpAuthUri")
     config["proxy_callback_uri"] = os.environ.get("ProxyCallbackUri")
+    #config["callback_uri"] = "http://localhost:3001/oauth/callback"
     config["state_table"] = os.environ.get("DynamoDbStateTable")
+    config["nonce_table"] = os.environ.get("DynamoDbNonceTable")
 
     print("+++ ENV VARS COLLECTED +++")
     print(config)
+    print(params)
 
     # Generate code_verifier, hash it and remove padding
     code_verifier = SM_CLIENT.get_random_password(
@@ -76,14 +79,19 @@ def handler(event, context):
     code_challenge = code_challenge.replace('=', '')
 
     # store hashed state and code_verifier in dynamodb with ttl
-    hashed_state = hashlib.sha256(params["state"].encode("utf-8")).hexdigest()
+    # Generate nonce and store hashed state in DynamoDB with ttl
+    nonce = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(16))
+    #hashed_state = hashlib.sha256(params["state"].encode("utf-8")).hexdigest()
+    hashed_state = params["state"]
+  #str(hashed_state)
     print(f"Storing hashed state: {hashed_state}")
-    state_ttl = int(time.time()) + 300
+    state_ttl = int(time.time()) + 500
+    nonce_ttl = int(time.time()) + 500
     DYNAMODB_CLIENT.put_item(
         TableName = config["state_table"],
         Item = {
             "state": {
-                "S": str(hashed_state)
+                "S":str(hashed_state)
             },
             "code_verifier": {
                 "S": code_verifier
@@ -94,9 +102,23 @@ def handler(event, context):
         }
     )
 
+    DYNAMODB_CLIENT.put_item(
+      TableName = config["nonce_table"],
+        Item = {
+            "nonce": {
+                "S": nonce
+            },
+            "code_verifier": {
+                "S": code_verifier
+            },
+            "ttl": {
+                "N": str(nonce_ttl)
+            }
+        }
+    )
+
     # add code_challenge, code_challenge_method=S256 and proxy callback uri to params
-    params["code_challenge"] = code_challenge
-    params["code_challenge_method"] = "S256"
+    params["nonce"] = nonce
     params["redirect_uri"] = config["proxy_callback_uri"]
 
     print("+++ NEW QUERY STRING PARAMETERS +++")

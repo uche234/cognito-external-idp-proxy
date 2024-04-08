@@ -67,6 +67,13 @@ class PjwtWithPkceStack(Stack):
             billing_mode = _dynamodb.BillingMode.PAY_PER_REQUEST,
             time_to_live_attribute = "ttl"
         )
+         # DynamoDB table to store generated nonce to be used during the authorisation  request.
+        dynamodb_nonce_table = _dynamodb.Table(
+            self, "NonceTable",
+            partition_key = _dynamodb.Attribute(name = "nonce", type = _dynamodb.AttributeType.STRING),
+            billing_mode = _dynamodb.BillingMode.PAY_PER_REQUEST,
+            time_to_live_attribute = "ttl"
+        )
 
         # Secrets Manager empty secret to hold the private key for private key JWT token request
         secretsmanager_private_key = _secretsmanager.Secret(
@@ -87,6 +94,12 @@ class PjwtWithPkceStack(Stack):
                             effect = _iam.Effect.ALLOW,
                             actions = ["dynamodb:DescribeTable", "dynamodb:PutItem"],
                             resources = [dynamodb_state_table.table_arn]
+                        ),
+                         #added iam policy for nonce table
+                         _iam.PolicyStatement(
+                            effect = _iam.Effect.ALLOW,
+                            actions = ["dynamodb:DescribeTable", "dynamodb:PutItem"],
+                            resources = [dynamodb_nonce_table.table_arn]
                         )
                     ]
                 ),
@@ -111,6 +124,7 @@ class PjwtWithPkceStack(Stack):
             environment = {
                 "ClientId": self.node.try_get_context("idp_client_id"),
                 "DynamoDbStateTable": dynamodb_state_table.table_name,
+                "DynamoDbNonceTable": dynamodb_nonce_table.table_name,
                 "IdpAuthUri": self.node.try_get_context("idp_issuer_url") + self.node.try_get_context("idp_auth_path"),
                 "ProxyCallbackUri": f"{apigw_proxy_api.attr_api_endpoint}/{api_version}{callb_route}"
             },
@@ -131,12 +145,12 @@ class PjwtWithPkceStack(Stack):
                         _iam.PolicyStatement(
                             effect = _iam.Effect.ALLOW,
                             actions = ["dynamodb:DescribeTable", "dynamodb:GetItem"],
-                            resources = [dynamodb_state_table.table_arn]
+                            resources = [dynamodb_state_table.table_arn,]
                         ),
                         _iam.PolicyStatement(
                             effect = _iam.Effect.ALLOW,
                             actions = ["dynamodb:DescribeTable", "dynamodb:PutItem"],
-                            resources = [dynamodb_code_table.table_arn]
+                            resources = [dynamodb_code_table.table_arn,]
                         )
                     ]
                 )
@@ -152,7 +166,8 @@ class PjwtWithPkceStack(Stack):
             environment = {
                 "CognitoIdpResponseUri": f"https://{apigw_proxy_api.attr_api_id}.auth.{_aws.REGION}.amazoncognito.com/oauth2/idpresponse",
                 "DynamoDbCodeTable": dynamodb_code_table.table_name,
-                "DynamoDbStateTable": dynamodb_state_table.table_name
+                "DynamoDbStateTable": dynamodb_state_table.table_name,
+                #"DynamoDbNonceTable": dynamodb_nonce_table.table_name
             },
             role = lambda_function_callback_exec_role,
             log_retention = _logs.RetentionDays.FIVE_DAYS
@@ -414,6 +429,10 @@ class PjwtWithPkceStack(Stack):
             self, "DynamoDbCodeTable",
             value = dynamodb_code_table.table_name
         )
+        _output(
+            self, "DynamoDbNonceTable",
+            value = dynamodb_nonce_table.table_name
+        )
 
         _output(
             self, "SecretsManagerPrivateKeyArn",
@@ -545,3 +564,9 @@ class PjwtWithPkceStack(Stack):
                 { "id": "AwsSolutions-DDB3", "reason": "Short lived data only."}
             ]
         )
+        NagSuppressions.add_resource_suppressions(
+            dynamodb_nonce_table, [
+                { "id": "AwsSolutions-DDB3", "reason": "Short lived data only."}
+            ]
+        )
+

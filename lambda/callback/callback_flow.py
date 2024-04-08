@@ -22,7 +22,7 @@ def validate_request(params: dict) -> bool:
     """
     validation = False
 
-    if params["state"] and params["code"]:
+    if params["state"] and params["code"]: # and params["nonce"]:
         validation = True
 
     return validation
@@ -54,13 +54,15 @@ def handler(event, context):
     config["state"] = org_params["state"]
     config["auth_code_table"] = os.environ.get("DynamoDbCodeTable")
     config["state_table"] = os.environ.get("DynamoDbStateTable")
+   #config["nonce_table"] = os.environ.get("DynamoDbNonceTable")
     config["cognito_idp_response_uri"] = os.environ.get("CognitoIdpResponseUri")
 
     print("+++ CONFIGURATION ITEMS +++")
     print(config)
 
     # Get code_verifier from state_table with hashed state
-    hashed_state = hashlib.sha256(config["state"].encode("utf-8")).hexdigest()
+    #hashed_state = hashlib.sha256(config["state"].encode("utf-8")).hexdigest()
+    hashed_state = config["state"]
     print(f"Looking for state hash: {hashed_state}")
     state_result = DYNAMODB_CLIENT.get_item(
         TableName = config["state_table"],
@@ -77,7 +79,7 @@ def handler(event, context):
     print(code_verifier)
 
     # Store auth_code and code_verifier in auth_code_table
-    code_ttl = int(time.time()) + 300
+    code_ttl = int(time.time()) + 600
     DYNAMODB_CLIENT.put_item(
         TableName = config["auth_code_table"],
         Item = {
